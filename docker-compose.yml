@@ -1,28 +1,73 @@
-version: '2'
-
-volumes:
-  nextcloud:
-  db:
+version: '2.1'
 
 services:
   db:
-    image: mariadb
+    image: mariadb:latest
     restart: always
-    volumes:
-      - db:/var/lib/mysql
+    container_name: db_nextcloud
+    expose:
+      - "3306"
+    networks:
+     - nc_app_db
+    volumes_from:
+      - data-mariadb
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=yes
-      # - MYSQL_ROOT_PASSWORD=
-      - MYSQL_PASSWORD=nextcloud
       - MYSQL_DATABASE=nextcloud
+      # - MYSQL_ROOT_PASSWORD=
       - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=nextcloud
 
   app:
-    image: nextcloud
-    ports:
-      - 8080:80
-    links:
-      - db
-    volumes:
-      - nextcloud:/var/www/html
+    image: wonderfall/nextcloud:12.0
     restart: always
+    ports:
+      - 8888:8888
+    networks:
+      nc_app_db:
+      nc_app_collabora:
+    depends_on:
+      - db
+      - collabora
+    volumes_from:
+      - data-nextcloud
+    environment:
+      # - ADMIN_USER=root
+      # - ADMIN_PASSWORD=root
+      - DB_TYPE=mysql
+      - DB_HOST=db_nextcloud
+      - DB_NAME=nextcloud
+      - DB_USER=nextcloud
+      - DB_PASSWORD=nextcloud
+
+  collabora:
+    image: collabora/code:2.1.2
+    restart: always
+    container_name: collabora
+    ports:
+      - 9980:9980
+    networks:
+     nc_app_collabora:
+    cap_add:
+      - MKNOD
+    environment:
+      - domain=172\\.17\\.8\\.101
+
+  data-mariadb:
+    image: busybox
+    container_name: data-nc-mariadb
+    volumes:
+        - /var/lib/mysql
+
+  data-nextcloud:
+    image: busybox
+    container_name: data-nc-app
+    volumes:
+      - /data
+      - /config
+      - /apps2
+      - /nextcloud/themes
+
+networks:
+  nc_app_collabora:
+  nc_app_db:
